@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>現役 CB 資訊看板 - 全能分析版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; transition: background-color 0.3s ease; }
+        
+        table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; }
+        th { position: sticky; top: 0; z-index: 10; white-space: nowrap; font-weight: 700; cursor: pointer; user-select: none; transition: all 0.2s; font-size: 14px; }
+        td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; border-bottom: 1px solid; transition: all 0.1s; }
+        
+        .column-container { height: 500px; overflow-y: auto; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { border-radius: 10px; }
+
+        /* 白天模式 */
+        .light body { background-color: #f1f5f9; }
+        .light th { background: #e2e8f0; color: #1e293b; border-bottom: 2px solid #cbd5e1; }
+        .light td { border-color: #e2e8f0; }
+        .light .above-average { background-color: #f0fdf4 !important; }
+        .light .above-average td:first-child { border-left: 4px solid #22c55e; }
+        .light tr:hover td { background-color: #1e293b !important; color: #ffffff !important; }
+        .light tr:hover .text-red-600, .light tr:hover .text-rose-500, .light tr:hover .text-blue-500, 
+        .light tr:hover .text-slate-500, .light tr:hover .text-blue-600, .light tr:hover .text-blue-700 { color: #ffffff !important; }
+        .light ::-webkit-scrollbar-thumb { background: #94a3b8; }
+
+        /* 夜晚模式 */
+        .dark body { background-color: #020617; }
+        .dark .bg-white { background-color: #0f172a; border-color: #1e293b; }
+        .dark th { background: #1e293b; color: #f8fafc; border-bottom: 2px solid #334155; }
+        .dark td { border-color: #1e293b; color: #f1f5f9; }
+        .dark .above-average { background-color: #064e3b !important; }
+        .dark .above-average td { color: #dcfce7 !important; }
+        .dark .above-average td:first-child { border-left: 4px solid #4ade80; }
+        .dark tr:hover td { background-color: #3b82f6 !important; color: #ffffff !important; }
+        .dark tr:hover .text-red-400, .dark tr:hover .text-rose-500, .dark tr:hover .text-blue-400,
+        .dark tr:hover .text-slate-200, .dark tr:hover .text-white { color: #ffffff !important; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        
+        .sort-icon { font-size: 13px; margin-left: 2px; color: #94a3b8; }
+        .active-sort { color: #3b82f6 !important; text-decoration: underline; }
+        .row-selected td { background-color: #f59e0b !important; color: #000000 !important; font-weight: 800 !important; border-left: none !important; }
+    </style>
+</head>
+<body class="light py-3 px-2 md:px-4">
+    <div class="max-w-[1920px] mx-auto">
+        <!-- 控制面板 -->
+        <header class="bg-white rounded-xl shadow-md p-4 mb-4 border border-slate-200 transition-colors duration-300">
+            <div class="flex flex-col md:flex-row items-center gap-3">
+                <div class="flex-1 flex items-center justify-between w-full">
+                    <h1 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                        <div class="bg-blue-600 p-1.5 rounded-lg shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                        </div>
+                        CB 全能分析 <span class="text-blue-600 font-mono text-base ml-1">ULTIMATE</span>
+                    </h1>
+                    
+                    <button id="themeToggle" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:scale-105 transition-transform">
+                        <svg id="sunIcon" class="w-5 h-5 text-orange-500 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"></path></svg>
+                        <svg id="moonIcon" class="w-5 h-5 text-slate-700" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                    </button>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <input type="file" id="csvFile" accept=".csv" class="text-xs text-slate-500 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer transition-all">
+                    <input type="text" id="searchInput" placeholder="搜尋..." class="px-3 py-1.5 border-2 border-slate-200 rounded-lg text-base focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-60 dark:bg-slate-900 dark:border-slate-700 dark:text-white">
+                </div>
+            </div>
+            <div class="flex flex-wrap justify-between items-center mt-3 gap-2">
+                <div class="flex gap-4 text-xs font-bold">
+                    <span class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300"><span class="w-3 h-3 bg-[#f0fdf4] dark:bg-[#064e3b] border border-green-500 rounded-sm"></span> 高溢價標示</span>
+                    <span class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300"><span class="w-3 h-3 bg-red-100 dark:bg-red-900/50 rounded-sm"></span> 10日成交新高</span>
+                </div>
+                <p id="status" class="text-blue-600 dark:text-blue-400 text-xs font-black">📢 請上傳數據檔案進行分析</p>
+            </div>
+        </header>
+
+        <!-- 區塊容器 -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6" id="dashboard-grid">
+            <script>
+                const groupsConfig = [
+                    { id: 1, title: "價值 90 - 100 (量 > 5)", color: "from-slate-700 to-slate-800" },
+                    { id: 2, title: "價值 100 - 110 (量 > 5)", color: "from-indigo-700 to-indigo-900" },
+                    { id: 3, title: "價值 110 - 120 (量 > 5)", color: "from-blue-700 to-blue-900" },
+                    { id: 4, title: "10日成交新高 (參105-150)", color: "from-rose-700 to-rose-900" },
+                    { id: 5, title: "熱門標的 (5日均量 > 50)", color: "from-orange-600 to-orange-800" },
+                    { id: 6, title: "價平區間 (價值 95-105)", color: "from-emerald-600 to-emerald-800" },
+                    { id: 7, title: "投信當日買超 Top 20", color: "from-cyan-700 to-cyan-900" },
+                    { id: 8, title: "自營商當日買超 Top 20", color: "from-teal-700 to-teal-900" },
+                    { id: 9, title: "投信 5日累計買超 Top 20", color: "from-sky-700 to-sky-900" },
+                    { id: 10, title: "自營商 5日累計買超 Top 20", color: "from-violet-700 to-violet-900" }
+                ];
+
+                let sortStates = {};
+                groupsConfig.forEach(g => {
+                    sortStates[g.id] = (g.id >= 7) ? { key: 'trustNum', asc: false } : { key: 'convValue', asc: true };
+                });
+
+                groupsConfig.forEach(group => {
+                    document.write(`
+                        <div id="section-${group.id}" class="bg-white rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+                            <div class="bg-gradient-to-r ${group.color} px-3 py-2 flex justify-between items-center">
+                                <h2 class="text-white font-black text-[13px] tracking-tight uppercase">${group.title}</h2>
+                                <div class="flex items-center gap-3">
+                                    <span id="avg-${group.id}" class="text-[11px] text-white/90 font-mono font-bold">溢價: -</span>
+                                    <span id="count-${group.id}" class="bg-white text-slate-900 text-[11px] px-1.5 py-0.5 rounded font-black font-mono">0</span>
+                                </div>
+                            </div>
+                            <div class="column-container">
+                                <table class="text-[14.5px]">
+                                    <thead>
+                                        <tr class="dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50">
+                                            <th class="px-1 py-2 text-left w-14 pl-3" onclick="handleSort(${group.id}, 'code')">代號<span class="sort-icon" id="sort-${group.id}-code">↕</span></th>
+                                            <th class="px-1 py-2 text-left w-20" onclick="handleSort(${group.id}, 'name')">名稱<span class="sort-icon" id="sort-${group.id}-name">↕</span></th>
+                                            <th class="px-1 py-2 text-center w-16" onclick="handleSort(${group.id}, 'refPrice')">參考價<span class="sort-icon" id="sort-${group.id}-refPrice">↕</span></th>
+                                            <th class="px-1 py-2 text-center w-16" onclick="handleSort(${group.id}, 'convValue')">價值<span class="sort-icon" id="sort-${group.id}-convValue">▲</span></th>
+                                            <th class="px-1 py-2 text-center w-16" onclick="handleSort(${group.id}, 'premiumValue')">溢價率<span class="sort-icon" id="sort-${group.id}-premiumValue">↕</span></th>
+                                            <th class="px-1 py-2 text-center w-12" onclick="handleSort(${group.id}, 'cbVolume')">成交<span class="sort-icon" id="sort-${group.id}-cbVolume">↕</span></th>
+                                            <th class="px-1 py-2 text-center w-16" onclick="handleSort(${group.id}, 'cbAvg5')">5日均<span class="sort-icon" id="sort-${group.id}-cbAvg5">↕</span></th>
+                                            <th class="px-1 py-2 text-center w-16" onclick="handleSort(${group.id}, 'marginNum')">融券<span class="sort-icon" id="sort-${group.id}-marginNum">↕</span></th>
+                                            <th class="px-1 py-2 text-center w-16" onclick="handleSort(${group.id}, 'trustNum')">投信<span class="sort-icon" id="sort-${group.id}-trustNum">↕</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="group-${group.id}" class="divide-y divide-slate-100 dark:divide-slate-800/50"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `);
+                });
+            </script>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+        const themeToggle = document.getElementById('themeToggle'), sunIcon = document.getElementById('sunIcon'), moonIcon = document.getElementById('moonIcon'), html = document.documentElement, body = document.body;
+        
+        function setTheme(isDark) { if (isDark) { html.classList.add('dark'); body.classList.replace('light', 'dark'); sunIcon.classList.remove('hidden'); moonIcon.classList.add('hidden'); localStorage.setItem('theme', 'dark'); } else { html.classList.remove('dark'); body.classList.replace('dark', 'light'); sunIcon.classList.add('hidden'); moonIcon.classList.remove('hidden'); localStorage.setItem('theme', 'light'); } }
+        setTheme((localStorage.getItem('theme') || 'light') === 'dark');
+        themeToggle.addEventListener('click', () => setTheme(!html.classList.contains('dark')));
+        
+        function toggleRowSelection(row) { row.classList.toggle('row-selected'); }
+
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('status').innerText = '⏳ 解析數據中...';
+            Papa.parse(file, {
+                header: false, skipEmptyLines: true,
+                complete: function(results) { processCSV(results.data); }
+            });
+        });
+
+        document.getElementById('searchInput').addEventListener('input', () => renderDashboard(allData));
+
+        function handleSort(groupId, key) {
+            const state = sortStates[groupId];
+            if (state.key === key) state.asc = !state.asc;
+            else { state.key = key; state.asc = false; }
+            updateSortIcons(groupId); renderDashboard(allData);
+        }
+
+        function updateSortIcons(groupId) {
+            const state = sortStates[groupId], headers = ['code', 'name', 'refPrice', 'convValue', 'premiumValue', 'cbVolume', 'cbAvg5', 'marginNum', 'trustNum'];
+            headers.forEach(h => { const el = document.getElementById(`sort-${groupId}-${h}`); if (!el) return; if (state.key === h) { el.innerText = state.asc ? '▲' : '▼'; el.classList.add('active-sort'); } else { el.innerText = '↕'; el.classList.remove('active-sort'); } });
+        }
+
+        function processCSV(rows) {
+            const baseHeaderIdx = rows.findIndex(row => row.includes("代號") && row.includes("名稱"));
+            if (baseHeaderIdx === -1) return;
+            const topRow = rows[baseHeaderIdx - 1] || [], headerRow = rows[baseHeaderIdx];
+            const findIdx = (keywords) => headerRow.findIndex(h => keywords.some(kw => h && h.includes(kw)));
+            const findLayeredIdx = (mainKeyword) => {
+                let topIdx = -1; for(let i=0; i<topRow.length; i++) { if(topRow[i] && topRow[i].replace(/\s/g, '').includes(mainKeyword)) { topIdx = i; break; } }
+                if (topIdx === -1) return -1; for(let j=topIdx; j<topIdx+10; j++) { if(headerRow[j] && headerRow[j].match(/\d{2}\/\d{2}/)) return j; } return topIdx;
+            };
+            const idx = { code: findIdx(["代號"]), name: findIdx(["名稱"]), refPrice: findLayeredIdx("轉債參考價"), convVal: findIdx(["轉換價值"]), margin: findLayeredIdx("標的股票融券賣出"), trust: findLayeredIdx("投信買賣超"), cbVolume: findLayeredIdx("CB成交量"), dealer: findLayeredIdx("CB自營買賣超") };
+            const parseNum = (val) => { if (!val || val === "-" || val === "0" || val === "") return 0; let n = parseFloat(val.toString().replace(/,/g, '').replace(/%/g, '')); return isNaN(n) ? 0 : n; };
+
+            allData = rows.slice(baseHeaderIdx + 1).map(row => {
+                const name = (row[idx.name] || "").trim(), code = (row[idx.code] || "").trim();
+                if (!name || name === "名稱" || !code) return null;
+                const cbVolToday = parseNum(row[idx.cbVolume]), volHistory = [];
+                for(let i=0; i<10; i++) volHistory.push(parseNum(row[idx.cbVolume + i]));
+                const avg5 = volHistory.slice(0, 5).reduce((a, b) => a + b, 0) / 5, past9Max = Math.max(...volHistory.slice(1, 10));
+                const isNewHigh = cbVolToday > past9Max && cbVolToday > 0;
+                const trustToday = parseNum(row[idx.trust]), trustSum5 = [0,1,2,3,4].reduce((s,i)=>s+parseNum(row[idx.trust+i]), 0);
+                const dealerToday = idx.dealer !== -1 ? parseNum(row[idx.dealer]) : 0, dealerSum5 = idx.dealer !== -1 ? [0,1,2,3,4].reduce((s,i)=>s+parseNum(row[idx.dealer+i]), 0) : 0;
+                const refPriceVal = parseNum(row[idx.refPrice]), convValue = parseNum(row[idx.convVal]);
+                return { code, name, refPrice: refPriceVal, convValue, premiumValue: convValue > 0 ? (refPriceVal / convValue) - 1 : 0, cbVolume: cbVolToday, cbAvg5: avg5, isNewHigh, margin: row[idx.margin] || "0", marginNum: parseNum(row[idx.margin]), trust: row[idx.trust] || "0", trustNum: trustToday, trustSum5: trustSum5, dealer: idx.dealer !== -1 ? row[idx.dealer] : "0", dealerNum: dealerToday, dealerSum5: dealerSum5 };
+            }).filter(d => d !== null);
+
+            document.getElementById('status').innerText = `✅ 數據基準日: ${headerRow[idx.cbVolume]}`;
+            renderDashboard(allData);
+        }
+
+        function renderDashboard(data) {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase(), groups = Array.from({length:10}, ()=>[]), tBodyIds = groups.map((_,i)=>`group-${i+1}`);
+            const filtered = data.filter(d => d.name.includes(searchTerm) || d.code.includes(searchTerm));
+
+            filtered.forEach(item => {
+                const v = item.convValue, vol = item.cbVolume, avg5 = item.cbAvg5;
+                if (vol > 5) { if (v >= 90 && v < 100) groups[0].push(item); else if (v >= 100 && v < 110) groups[1].push(item); else if (v >= 110 && v <= 120) groups[2].push(item); }
+                if (item.isNewHigh && item.refPrice >= 105 && item.refPrice <= 150) groups[3].push(item);
+                if (avg5 > 50) groups[4].push(item);
+                if (v >= 95 && v <= 105) groups[5].push(item);
+                if (item.trustNum > 0) groups[6].push(item);
+                if (item.dealerNum > 0) groups[7].push(item);
+                if (item.trustSum5 > 0) groups[8].push(item);
+                if (item.dealerSum5 > 0) groups[9].push(item);
+            });
+
+            [6,7,8,9].forEach(i => {
+                const k = (i===6)?'trustNum':(i===7)?'dealerNum':(i===8)?'trustSum5':'dealerSum5';
+                groups[i].sort((a,b)=>b[k]-a[k]); groups[i] = groups[i].slice(0, 20);
+            });
+
+            groups.forEach((group, i) => {
+                const groupId = i + 1, tbody = document.getElementById(tBodyIds[i]), countSpan = document.getElementById(`count-${groupId}`), avgSpan = document.getElementById(`avg-${groupId}`);
+                countSpan.innerText = group.length;
+                if (group.length === 0) { tbody.innerHTML = `<tr><td colspan="9" class="py-16 text-center text-slate-400 font-bold">無資料</td></tr>`; avgSpan.innerText = "溢價: -"; return; }
+                const avgPremium = group.reduce((sum, d) => sum + d.premiumValue, 0) / group.length;
+                avgSpan.innerText = `溢價: ${(avgPremium * 100).toFixed(1)}%`;
+                const state = sortStates[groupId];
+                group.sort((a, b) => { let vA = a[state.key], vB = b[state.key]; return state.asc ? (vA > vB ? 1 : -1) : (vB > vA ? 1 : -1); });
+
+                tbody.innerHTML = group.map(item => {
+                    const isAboveAvg = item.premiumValue > avgPremium;
+                    const pClass = isAboveAvg ? 'text-red-600 dark:text-red-400 font-black' : (item.premiumValue > 0 ? 'text-rose-500' : 'text-blue-500');
+                    const vClass = item.isNewHigh ? 'text-slate-900 dark:text-white font-black underline' : 'text-slate-800 dark:text-slate-200 font-bold';
+                    let tDisp = item.trust;
+                    if (groupId === 9) tDisp = item.trustSum5; else if (groupId === 8) tDisp = item.dealer; else if (groupId === 10) tDisp = item.dealerSum5;
+                    const tVal = (groupId===8||groupId===10)?(groupId===8?item.dealerNum:item.dealerSum5):(groupId===9?item.trustSum5:item.trustNum);
+                    const tClass = tVal > 0 ? 'text-red-600 dark:text-red-400 font-black' : (tVal < 0 ? 'text-green-600 dark:text-green-400 font-black' : 'text-slate-400');
+
+                    return `
+                        <tr class="${isAboveAvg ? 'above-average' : ''} cursor-pointer" onclick="toggleRowSelection(this)">
+                            <td class="px-1 py-1.5 font-mono text-slate-500 pl-3 font-bold">${item.code}</td>
+                            <td class="px-1 py-1.5 font-black text-slate-800 dark:text-slate-200 truncate">${item.name}</td>
+                            <td class="px-1 py-1.5 text-center text-slate-500 dark:text-slate-400 font-mono font-bold">${item.refPrice === 0 ? '-' : item.refPrice.toFixed(1)}</td>
+                            <td class="px-1 py-1.5 text-center font-black text-slate-900 dark:text-white font-mono">${item.convValue.toFixed(1)}</td>
+                            <td class="px-1 py-1.5 text-center font-mono ${pClass}">${(item.premiumValue * 100).toFixed(1)}%</td>
+                            <td class="px-1 py-1.5 text-center font-mono ${vClass}">${item.cbVolume}</td>
+                            <td class="px-1 py-1.5 text-center text-blue-600 dark:text-blue-400 font-black font-mono">${item.cbAvg5.toFixed(1)}</td>
+                            <td class="px-1 py-1.5 text-center text-slate-500 dark:text-slate-400 font-mono font-bold">${item.margin}</td>
+                            <td class="px-1 py-1.5 text-center font-mono ${tClass}">${tDisp}</td>
+                        </tr>
+                    `;
+                }).join('');
+            });
+        }
+    </script>
+</body>
+</html>
