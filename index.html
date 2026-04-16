@@ -95,12 +95,10 @@
                     { id: 2, title: "價值 100 - 110 (量 > 5)", color: "from-indigo-700 to-indigo-900" },
                     { id: 3, title: "價值 110 - 120 (量 > 5)", color: "from-blue-700 to-blue-900" },
                     { id: 4, title: "10日成交新高 (參105-150)", color: "from-rose-700 to-rose-900" },
-                    { id: 5, title: "熱門標的 (5日均量 > 50)", color: "from-orange-600 to-orange-800" },
-                    { id: 6, title: "價平區間 (價值 95-105)", color: "from-emerald-600 to-emerald-800" },
+                    { id: 5, title: "熱門標的 (均量>50 & 價85-150)", color: "from-orange-600 to-orange-800" },
+                    { id: 6, title: "價平區間 (價值 95-105 & 量 > 10)", color: "from-emerald-600 to-emerald-800" },
                     { id: 7, title: "投信當日買超 Top 20", color: "from-cyan-700 to-cyan-900" },
-                    { id: 8, title: "自營商當日買超 Top 20", color: "from-teal-700 to-teal-900" },
-                    { id: 9, title: "投信 5日累計買超 Top 20", color: "from-sky-700 to-sky-900" },
-                    { id: 10, title: "自營商 5日累計買超 Top 20", color: "from-violet-700 to-violet-900" }
+                    { id: 8, title: "投信 5日累計買超 Top 20", color: "from-sky-700 to-sky-900" }
                 ];
 
                 let sortStates = {};
@@ -207,23 +205,24 @@
         }
 
         function renderDashboard(data) {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase(), groups = Array.from({length:10}, ()=>[]), tBodyIds = groups.map((_,i)=>`group-${i+1}`);
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase(), groups = Array.from({length:8}, ()=>[]), tBodyIds = groups.map((_,i)=>`group-${i+1}`);
             const filtered = data.filter(d => d.name.includes(searchTerm) || d.code.includes(searchTerm));
 
             filtered.forEach(item => {
                 const v = item.convValue, vol = item.cbVolume, avg5 = item.cbAvg5;
                 if (vol > 5) { if (v >= 90 && v < 100) groups[0].push(item); else if (v >= 100 && v < 110) groups[1].push(item); else if (v >= 110 && v <= 120) groups[2].push(item); }
                 if (item.isNewHigh && item.refPrice >= 105 && item.refPrice <= 150) groups[3].push(item);
-                if (avg5 > 50) groups[4].push(item);
-                if (v >= 95 && v <= 105) groups[5].push(item);
+                if (avg5 > 50 && vol > 0 && v >= 85 && v <= 150) groups[4].push(item);
+                
+                // 價平區間：價值 95-105 且 成交量 > 10 且 5日均量 > 10
+                if (v >= 95 && v <= 105 && vol > 10 && avg5 > 10) groups[5].push(item);
+                
                 if (item.trustNum > 0) groups[6].push(item);
-                if (item.dealerNum > 0) groups[7].push(item);
-                if (item.trustSum5 > 0) groups[8].push(item);
-                if (item.dealerSum5 > 0) groups[9].push(item);
+                if (item.trustSum5 > 0) groups[7].push(item);
             });
 
-            [6,7,8,9].forEach(i => {
-                const k = (i===6)?'trustNum':(i===7)?'dealerNum':(i===8)?'trustSum5':'dealerSum5';
+            [6,7].forEach(i => {
+                const k = (i===6)?'trustNum':'trustSum5';
                 groups[i].sort((a,b)=>b[k]-a[k]); groups[i] = groups[i].slice(0, 20);
             });
 
@@ -241,8 +240,8 @@
                     const pClass = isAboveAvg ? 'text-red-600 dark:text-red-400 font-black' : (item.premiumValue > 0 ? 'text-rose-500' : 'text-blue-500');
                     const vClass = item.isNewHigh ? 'text-slate-900 dark:text-white font-black underline' : 'text-slate-800 dark:text-slate-200 font-bold';
                     let tDisp = item.trust;
-                    if (groupId === 9) tDisp = item.trustSum5; else if (groupId === 8) tDisp = item.dealer; else if (groupId === 10) tDisp = item.dealerSum5;
-                    const tVal = (groupId===8||groupId===10)?(groupId===8?item.dealerNum:item.dealerSum5):(groupId===9?item.trustSum5:item.trustNum);
+                    if (groupId === 8) tDisp = item.trustSum5;
+                    const tVal = (groupId===8)?item.trustSum5:item.trustNum;
                     const tClass = tVal > 0 ? 'text-red-600 dark:text-red-400 font-black' : (tVal < 0 ? 'text-green-600 dark:text-green-400 font-black' : 'text-slate-400');
 
                     return `
@@ -253,7 +252,7 @@
                             <td class="px-1 py-1.5 text-center font-black text-slate-900 dark:text-white font-mono">${item.convValue.toFixed(1)}</td>
                             <td class="px-1 py-1.5 text-center font-mono ${pClass}">${(item.premiumValue * 100).toFixed(1)}%</td>
                             <td class="px-1 py-1.5 text-center font-mono ${vClass}">${item.cbVolume}</td>
-                            <td class="px-1 py-1.5 text-center text-blue-600 dark:text-blue-400 font-black font-mono">${item.cbAvg5.toFixed(1)}</td>
+                            <td class="px-1 py-1.5 text-center text-blue-600 dark:text-blue-400 font-black font-mono">${item.cbAvg5.toFixed(0)}</td>
                             <td class="px-1 py-1.5 text-center text-slate-500 dark:text-slate-400 font-mono font-bold">${item.margin}</td>
                             <td class="px-1 py-1.5 text-center font-mono ${tClass}">${tDisp}</td>
                         </tr>
