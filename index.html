@@ -94,16 +94,20 @@
                     { id: 1, title: "價值 90 - 100 (量 > 5)", color: "from-slate-700 to-slate-800" },
                     { id: 2, title: "價值 100 - 110 (量 > 5)", color: "from-indigo-700 to-indigo-900" },
                     { id: 3, title: "價值 110 - 120 (量 > 5)", color: "from-blue-700 to-blue-900" },
-                    { id: 4, title: "10日成交新高 (參105-150)", color: "from-rose-700 to-rose-900" },
-                    { id: 5, title: "熱門標的 (均量>50 & 價85-150)", color: "from-orange-600 to-orange-800" },
-                    { id: 6, title: "價平區間 (價值 95-105 & 量 > 10)", color: "from-emerald-600 to-emerald-800" },
-                    { id: 7, title: "投信當日買超 Top 20", color: "from-cyan-700 to-cyan-900" },
-                    { id: 8, title: "投信 5日累計買超 Top 20", color: "from-sky-700 to-sky-900" }
+                    { id: 4, title: "價值 120 - 140 (量 > 5)", color: "from-fuchsia-700 to-fuchsia-900" },
+                    { id: 5, title: "價值 140 - 180 (量 > 5)", color: "from-purple-700 to-purple-900" },
+                    { id: 6, title: "價值 180 - 250 (量 > 5)", color: "from-pink-700 to-pink-900" },
+                    { id: 7, title: "10日成交新高 (參105-150)", color: "from-rose-700 to-rose-900" },
+                    { id: 8, title: "熱門標的 (均量>50 & 價85-150)", color: "from-orange-600 to-orange-800" },
+                    { id: 9, title: "價平區間 (價值 95-105 & 量 > 10)", color: "from-emerald-600 to-emerald-800" },
+                    { id: 10, title: "投信當日買超 Top 20", color: "from-cyan-700 to-cyan-900" },
+                    { id: 11, title: "投信 5日累計買超 Top 20", color: "from-sky-700 to-sky-900" }
                 ];
 
                 let sortStates = {};
                 groupsConfig.forEach(g => {
-                    sortStates[g.id] = (g.id >= 7) ? { key: 'trustNum', asc: false } : { key: 'convValue', asc: true };
+                    // 投信當日(10)與累計(11)預設排序依「投信買超量」，其餘依「轉換價值」
+                    sortStates[g.id] = (g.id >= 10) ? { key: 'trustNum', asc: false } : { key: 'convValue', asc: true };
                 });
 
                 groupsConfig.forEach(group => {
@@ -205,24 +209,29 @@
         }
 
         function renderDashboard(data) {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase(), groups = Array.from({length:8}, ()=>[]), tBodyIds = groups.map((_,i)=>`group-${i+1}`);
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase(), groups = Array.from({length:11}, ()=>[]), tBodyIds = groups.map((_,i)=>`group-${i+1}`);
             const filtered = data.filter(d => d.name.includes(searchTerm) || d.code.includes(searchTerm));
 
             filtered.forEach(item => {
                 const v = item.convValue, vol = item.cbVolume, avg5 = item.cbAvg5;
-                if (vol > 5) { if (v >= 90 && v < 100) groups[0].push(item); else if (v >= 100 && v < 110) groups[1].push(item); else if (v >= 110 && v <= 120) groups[2].push(item); }
-                if (item.isNewHigh && item.refPrice >= 105 && item.refPrice <= 150) groups[3].push(item);
-                if (avg5 > 50 && vol > 0 && v >= 85 && v <= 150) groups[4].push(item);
-                
-                // 價平區間：價值 95-105 且 成交量 > 10 且 5日均量 > 10
-                if (v >= 95 && v <= 105 && vol > 10 && avg5 > 10) groups[5].push(item);
-                
-                if (item.trustNum > 0) groups[6].push(item);
-                if (item.trustSum5 > 0) groups[7].push(item);
+                if (vol > 5) { 
+                    if (v >= 90 && v < 100) groups[0].push(item); 
+                    else if (v >= 100 && v < 110) groups[1].push(item); 
+                    else if (v >= 110 && v <= 120) groups[2].push(item);
+                    else if (v > 120 && v <= 140) groups[3].push(item);
+                    else if (v > 140 && v <= 180) groups[4].push(item); // 價值 140 - 180
+                    else if (v > 180 && v <= 250) groups[5].push(item); // 價值 180 - 250
+                }
+                if (item.isNewHigh && item.refPrice >= 105 && item.refPrice <= 150) groups[6].push(item);
+                if (avg5 > 50 && vol > 0 && v >= 85 && v <= 150) groups[7].push(item);
+                if (v >= 95 && v <= 105 && vol > 10 && avg5 > 10) groups[8].push(item);
+                if (item.trustNum > 0) groups[9].push(item);
+                if (item.trustSum5 > 0) groups[10].push(item);
             });
 
-            [6,7].forEach(i => {
-                const k = (i===6)?'trustNum':'trustSum5';
+            // 針對當日/累計投信 Top 20 區塊排序並截取前 20 名
+            [9,10].forEach(i => {
+                const k = (i===9)?'trustNum':'trustSum5';
                 groups[i].sort((a,b)=>b[k]-a[k]); groups[i] = groups[i].slice(0, 20);
             });
 
@@ -240,8 +249,8 @@
                     const pClass = isAboveAvg ? 'text-red-600 dark:text-red-400 font-black' : (item.premiumValue > 0 ? 'text-rose-500' : 'text-blue-500');
                     const vClass = item.isNewHigh ? 'text-slate-900 dark:text-white font-black underline' : 'text-slate-800 dark:text-slate-200 font-bold';
                     let tDisp = item.trust;
-                    if (groupId === 8) tDisp = item.trustSum5;
-                    const tVal = (groupId===8)?item.trustSum5:item.trustNum;
+                    if (groupId === 11) tDisp = item.trustSum5;
+                    const tVal = (groupId===11)?item.trustSum5:item.trustNum;
                     const tClass = tVal > 0 ? 'text-red-600 dark:text-red-400 font-black' : (tVal < 0 ? 'text-green-600 dark:text-green-400 font-black' : 'text-slate-400');
 
                     return `
